@@ -1,9 +1,8 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
-    Image,
-    SafeAreaView,
     StatusBar,
     StyleSheet,
     Text,
@@ -11,8 +10,11 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+// ojo: el SafeAreaView de react-native no hace nada en Android, por eso lo traemos de esta lib
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Subcategorías permitidas exactamente según el enunciado
+import ProductCard from '../components/ProductCard';
+
 export type Subcategory =
   | 'Camperas/Buzos/Sweaters'
   | 'Camisas'
@@ -31,9 +33,9 @@ export interface Product {
   gender: 'Hombre' | 'Mujer';
   subcategory: Subcategory;
   images: string[];
+  cantidad: number;
 }
 
-// Subcategorías para el filtro
 const SUBCATEGORIES: string[] = [
   'Todas',
   'Camperas/Buzos/Sweaters',
@@ -44,7 +46,7 @@ const SUBCATEGORIES: string[] = [
   'Jeans',
 ];
 
-// Productos locales estandarizados exclusivamente con tu catálogo de ropa
+// catálogo fijo que armamos nosotros, esto es lo que pide la consigna como "datos estáticos"
 const MOCK_CLOTHING: Product[] = [
   {
     id: 101,
@@ -54,6 +56,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Hombre',
     subcategory: 'Camperas/Buzos/Sweaters',
     images: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500'],
+    cantidad: 0,
   },
   {
     id: 102,
@@ -63,6 +66,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Mujer',
     subcategory: 'Camperas/Buzos/Sweaters',
     images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=500'],
+    cantidad: 0,
   },
   {
     id: 103,
@@ -72,6 +76,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Hombre',
     subcategory: 'Camisas',
     images: ['https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=500'],
+    cantidad: 0,
   },
   {
     id: 104,
@@ -81,6 +86,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Hombre',
     subcategory: 'Remeras',
     images: ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500'],
+    cantidad: 0,
   },
   {
     id: 105,
@@ -90,6 +96,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Mujer',
     subcategory: 'Remeras',
     images: ['https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=500'],
+    cantidad: 0,
   },
   {
     id: 106,
@@ -99,6 +106,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Mujer',
     subcategory: 'Jeans',
     images: ['https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=500'],
+    cantidad: 0,
   },
   {
     id: 107,
@@ -108,6 +116,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Hombre',
     subcategory: 'Jeans',
     images: ['https://images.unsplash.com/photo-1542272604-780c36856f61?w=500'],
+    cantidad: 0,
   },
   {
     id: 108,
@@ -117,6 +126,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Hombre',
     subcategory: 'Bermudas',
     images: ['https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500'],
+    cantidad: 0,
   },
   {
     id: 109,
@@ -126,6 +136,7 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Hombre',
     subcategory: 'Pantalones',
     images: ['https://images.unsplash.com/photo-1552902865-b72c031ac5ea?w=500'],
+    cantidad: 0,
   },
   {
     id: 110,
@@ -135,10 +146,12 @@ const MOCK_CLOTHING: Product[] = [
     gender: 'Mujer',
     subcategory: 'Camperas/Buzos/Sweaters',
     images: ['https://images.unsplash.com/photo-1576995853123-5a10305d93c0?w=500'],
+    cantidad: 0,
   },
 ];
 
-export default function HomeScreen({ navigation }: any) {
+export default function HomeScreen() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -155,7 +168,6 @@ export default function HomeScreen({ navigation }: any) {
       const response = await fetch('https://api.escuelajs.co/api/v1/products');
       const data = await response.json();
 
-      // Filtramos la API para asegurar que solo traiga ítems de la categoría "Clothes"
       const apiClothes = data
         .filter((item: any) => item.category?.name?.toLowerCase().includes('clothes'))
         .map((item: any, index: number): Product => {
@@ -176,12 +188,14 @@ export default function HomeScreen({ navigation }: any) {
             gender: isMen ? 'Hombre' : 'Mujer',
             subcategory: subcatList[index % subcatList.length],
             images: item.images,
+            cantidad: 0,
           };
         });
 
-      // Combinamos la API filtrada con la lista estandarizada local
+      // sumamos lo nuestro + lo de la api, así siempre hay algo para mostrar
       setProducts([...MOCK_CLOTHING, ...apiClothes]);
     } catch (error) {
+      // si la api falla nos quedamos solo con lo fijo, no rompe la pantalla
       console.log('Error al conectar con la API, usando catálogo local estandarizado:', error);
       setProducts(MOCK_CLOTHING);
     } finally {
@@ -189,7 +203,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // Filtrado simultáneo por Búsqueda + Género + Subcategoría
+  // filtra por texto buscado + género + categoría al mismo tiempo
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch = product.title
@@ -207,55 +221,70 @@ export default function HomeScreen({ navigation }: any) {
     });
   }, [searchQuery, selectedGender, selectedSubcategory, products]);
 
+  // manda el producto entero como string por los params de la ruta
   const handleProductPress = (id: number) => {
-    if (navigation) {
-      navigation.navigate('Detail', { productId: id });
-    } else {
-      console.log(`Navegar al producto con ID: ${id}`);
-    }
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+    router.push({
+      pathname: '/detalle',
+      params: { data: JSON.stringify(product) },
+    });
   };
 
-  const renderProductItem = ({ item }: { item: Product }) => {
-    const imageUrl =
-      item.images && item.images.length > 0
-        ? item.images[0].replace(/[\[\]"]/g, '')
-        : 'https://via.placeholder.com/150';
-
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        activeOpacity={0.8}
-        onPress={() => handleProductPress(item.id)}
-      >
-        <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
-        <View style={styles.cardContent}>
-          <View style={styles.badgeRow}>
-            <Text style={styles.genderBadge}>{item.gender}</Text>
-            <Text style={styles.dotSeparator}>•</Text>
-            <Text style={styles.subcategoryBadge} numberOfLines={1}>
-              {item.subcategory}
-            </Text>
-          </View>
-          <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={styles.cardPrice}>${item.price}</Text>
-        </View>
-      </TouchableOpacity>
-    );
+  // suma o resta 1, nunca deja bajar de 0
+  const cambiarCantidad = (id: number, delta: number) => {
+    const nuevosProductos = products.map((p) => {
+      if (p.id === id) {
+        const nuevaCant = p.cantidad + delta;
+        return { ...p, cantidad: nuevaCant < 0 ? 0 : nuevaCant };
+      }
+      return p;
+    });
+    setProducts(nuevosProductos);
   };
+
+  const itemsEnCarrito = useMemo(
+    () => products.filter((p) => p.cantidad > 0),
+    [products]
+  );
+
+  const totalItemsEnCarrito = useMemo(
+    () => itemsEnCarrito.reduce((acc, p) => acc + p.cantidad, 0),
+    [itemsEnCarrito]
+  );
+
+  // mismo mecanismo que el detalle, pero mandando el array de productos con cantidad > 0
+  const handleVerCarrito = () => {
+    router.push({
+      pathname: '/carrito',
+      params: { data: JSON.stringify(itemsEnCarrito) },
+    });
+  };
+
+  const renderProductItem = ({ item }: { item: Product }) => (
+    <ProductCard
+      product={item}
+      onPress={handleProductPress}
+      onCambiarCantidad={cambiarCantidad}
+    />
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
 
-      {/* Cabecera */}
       <View style={styles.header}>
-        <Text style={styles.brandTitle}>URBAN STORE</Text>
-        <Text style={styles.subtitle}>Tienda de Ropa</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.brandTitle}>URBAN STORE</Text>
+            <Text style={styles.subtitle}>Tienda de Ropa</Text>
+          </View>
+          <TouchableOpacity style={styles.cartButton} onPress={handleVerCarrito}>
+            <Text style={styles.cartButtonText}>🛒 {totalItemsEnCarrito}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Buscador de productos */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -266,7 +295,6 @@ export default function HomeScreen({ navigation }: any) {
         />
       </View>
 
-      {/* Filtro por Género (Hombre / Mujer / Todos) */}
       <View style={styles.genderSelectorContainer}>
         {(['Todos', 'Hombre', 'Mujer'] as Gender[]).map((gender) => (
           <TouchableOpacity
@@ -289,7 +317,6 @@ export default function HomeScreen({ navigation }: any) {
         ))}
       </View>
 
-      {/* Filtro horizontal por Subcategoría */}
       <View style={styles.categoryContainer}>
         <FlatList
           horizontal
@@ -317,7 +344,6 @@ export default function HomeScreen({ navigation }: any) {
         />
       </View>
 
-      {/* Grilla de productos */}
       {loading ? (
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color="#1C1C1E" />
@@ -352,6 +378,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 5,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cartButton: {
+    backgroundColor: '#1C1C1E',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  cartButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
   },
   brandTitle: {
     fontSize: 24,
@@ -430,59 +472,6 @@ const styles = StyleSheet.create({
   },
   row: {
     justifyContent: 'space-between',
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    width: '48%',
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardImage: {
-    width: '100%',
-    height: 170,
-    backgroundColor: '#F2F2F7',
-  },
-  cardContent: {
-    padding: 12,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  genderBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#007AFF',
-    textTransform: 'uppercase',
-  },
-  dotSeparator: {
-    fontSize: 10,
-    color: '#8E8E93',
-    marginHorizontal: 4,
-  },
-  subcategoryBadge: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#8E8E93',
-    flexShrink: 1,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 6,
-  },
-  cardPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000',
   },
   loaderContainer: {
     flex: 1,
